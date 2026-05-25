@@ -36,7 +36,12 @@ export default function App() {
   const [compressing, setCompressing] = React.useState(false);
   const xhrsRef = React.useRef<Record<string, XMLHttpRequest>>({});
   const addMoreRef = React.useRef<HTMLInputElement>(null);
+  const addMoreFolderRef = React.useRef<HTMLInputElement>(null);
   const queueDragCount = React.useRef(0);
+
+  React.useEffect(() => {
+    addMoreFolderRef.current?.setAttribute('webkitdirectory', '');
+  }, []);
 
   // tweaks → root attrs
   React.useEffect(() => {
@@ -280,6 +285,9 @@ export default function App() {
                   <button className="btn-ghost" onClick={() => addMoreRef.current?.click()} disabled={compressing} style={{ padding: '4px 9px', height: 24, fontSize: 11 }}>
                     {compressing ? '압축 중...' : '+ 파일 추가'}
                   </button>
+                  <button className="btn-ghost" onClick={() => addMoreFolderRef.current?.click()} disabled={compressing} style={{ padding: '4px 9px', height: 24, fontSize: 11 }}>
+                    {compressing ? '압축 중...' : '+ 폴더 추가'}
+                  </button>
                 </div>
               </div>
 
@@ -327,6 +335,11 @@ export default function App() {
               <input ref={addMoreRef} type="file" multiple hidden onChange={(e) => {
                 const files = Array.from(e.target.files || []);
                 if (files.length) addFiles(files);
+                e.target.value = '';
+              }} />
+              <input ref={addMoreFolderRef} type="file" multiple hidden onChange={(e) => {
+                const files = Array.from(e.target.files || []);
+                if (files.length) onFolderFiles(files);
                 e.target.value = '';
               }} />
             </section>
