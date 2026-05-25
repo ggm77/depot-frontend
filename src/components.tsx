@@ -1,5 +1,6 @@
 import React from 'react';
 import Icon from './icons';
+import { extractDropItems } from './zipFolder';
 
 // ── helpers ──────────────────────────────────────────────────────────
 export function formatBytes(n: number): string {
@@ -75,20 +76,29 @@ export function TopBar() {
 }
 
 // ── DropZone ─────────────────────────────────────────────────────────
-export function DropZone({ onFiles, active, setActive }: {
+export function DropZone({ onFiles, onFolderFiles, onFolderEntry, active, setActive, compressing = false }: {
   onFiles: (files: File[]) => void;
+  onFolderFiles: (files: File[]) => void;
+  onFolderEntry: (entry: FileSystemDirectoryEntry) => void;
   active: boolean;
   setActive: (v: boolean) => void;
+  compressing?: boolean;
 }) {
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const folderInputRef = React.useRef<HTMLInputElement>(null);
   const dragCount = React.useRef(0);
+
+  React.useEffect(() => {
+    folderInputRef.current?.setAttribute('webkitdirectory', '');
+  }, []);
 
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
     dragCount.current = 0;
     setActive(false);
-    const files = Array.from(e.dataTransfer.files || []);
+    const { files, dirEntries } = extractDropItems(e.dataTransfer);
     if (files.length) onFiles(files);
+    for (const dir of dirEntries) onFolderEntry(dir);
   };
   const onDragOver = (e: React.DragEvent) => { e.preventDefault(); };
   const onDragEnter = (e: React.DragEvent) => {
@@ -109,11 +119,16 @@ export function DropZone({ onFiles, active, setActive }: {
     if (files.length) onFiles(files);
     e.target.value = '';
   };
+  const onFolderPick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length) onFolderFiles(files);
+    e.target.value = '';
+  };
 
   return (
     <div
       className={`dropzone${active ? ' is-active' : ''}`}
-      onClick={() => inputRef.current?.click()}
+      onClick={() => !compressing && inputRef.current?.click()}
       onDrop={onDrop}
       onDragOver={onDragOver}
       onDragEnter={onDragEnter}
@@ -125,20 +140,25 @@ export function DropZone({ onFiles, active, setActive }: {
         <Icon.Upload />
       </div>
       <h2 className="dz-title">
-        {active ? '여기에 놓으세요' : '파일을 끌어다 놓으세요'}
+        {compressing ? '압축 중...' : active ? '여기에 놓으세요' : '파일을 끌어다 놓으세요'}
       </h2>
       <p className="dz-sub">
         또는 클릭하여 선택 · <span className="kbd">⌘</span> <span className="kbd">V</span> 로 붙여넣기
       </p>
 
       <div className="dz-actions" onClick={(e) => e.stopPropagation()}>
-        <button type="button" className="btn-primary" onClick={() => inputRef.current?.click()}>
+        <button type="button" className="btn-primary" onClick={() => inputRef.current?.click()} disabled={compressing}>
           <Icon.Plus />
           파일 선택
+        </button>
+        <button type="button" className="btn-ghost" onClick={() => folderInputRef.current?.click()} disabled={compressing}>
+          <Icon.Folder />
+          폴더 선택
         </button>
       </div>
 
       <input ref={inputRef} type="file" multiple hidden onChange={onPick} />
+      <input ref={folderInputRef} type="file" multiple hidden onChange={onFolderPick} />
     </div>
   );
 }

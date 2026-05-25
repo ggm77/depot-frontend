@@ -3,6 +3,7 @@ import { useTweaks, TweaksPanel, TweakSection, TweakColor, TweakRadio, TweakTogg
 import { TopBar, DropZone, QueueItem, Toasts, Confetti, detectKind, uid } from './components';
 import type { UploadItem, ToastItem } from './components';
 import Icon from './icons';
+import { zipInputFolder, zipDirEntry, extractDropItems } from './zipFolder';
 
 const TWEAK_DEFAULTS = {
   accent: '#c5f82a',
@@ -32,6 +33,7 @@ export default function App() {
   const [toasts, setToasts] = React.useState<ToastItem[]>([]);
   const [confettiSeed, setConfettiSeed] = React.useState(0);
   const [uploadStarted, setUploadStarted] = React.useState(false);
+  const [compressing, setCompressing] = React.useState(false);
   const xhrsRef = React.useRef<Record<string, XMLHttpRequest>>({});
   const addMoreRef = React.useRef<HTMLInputElement>(null);
   const queueDragCount = React.useRef(0);
@@ -72,6 +74,24 @@ export default function App() {
     }
     setItems((prev) => [...next, ...prev]);
   }, []);
+
+  const compressAndAdd = React.useCallback(async (promise: Promise<File>) => {
+    setCompressing(true);
+    try {
+      const zipFile = await promise;
+      addFiles([zipFile]);
+    } finally {
+      setCompressing(false);
+    }
+  }, [addFiles]);
+
+  const onFolderFiles = React.useCallback((files: File[]) => {
+    compressAndAdd(zipInputFolder(files));
+  }, [compressAndAdd]);
+
+  const onFolderEntry = React.useCallback((entry: FileSystemDirectoryEntry) => {
+    compressAndAdd(zipDirEntry(entry));
+  }, [compressAndAdd]);
 
   // real uploader — only runs after user clicks "업로드 시작"
   React.useEffect(() => {
@@ -213,7 +233,14 @@ export default function App() {
 
         <main className="main">
           {items.length === 0 ? (
-            <DropZone onFiles={addFiles} active={dropActive} setActive={setDropActive} />
+            <DropZone
+              onFiles={addFiles}
+              onFolderFiles={onFolderFiles}
+              onFolderEntry={onFolderEntry}
+              active={dropActive}
+              setActive={setDropActive}
+              compressing={compressing}
+            />
           ) : (
             <section
               className={`queue${dropActive ? ' drop-active' : ''}`}
@@ -231,8 +258,9 @@ export default function App() {
                 e.preventDefault();
                 queueDragCount.current = 0;
                 setDropActive(false);
-                const files = Array.from(e.dataTransfer.files || []);
+                const { files, dirEntries } = extractDropItems(e.dataTransfer);
                 if (files.length) addFiles(files);
+                for (const dir of dirEntries) onFolderEntry(dir);
               }}
             >
               <div className="section-h">
@@ -249,8 +277,8 @@ export default function App() {
                       전체 취소
                     </button>
                   )}
-                  <button className="btn-ghost" onClick={() => addMoreRef.current?.click()} style={{ padding: '4px 9px', height: 24, fontSize: 11 }}>
-                    + 파일 추가
+                  <button className="btn-ghost" onClick={() => addMoreRef.current?.click()} disabled={compressing} style={{ padding: '4px 9px', height: 24, fontSize: 11 }}>
+                    {compressing ? '압축 중...' : '+ 파일 추가'}
                   </button>
                 </div>
               </div>
