@@ -3,7 +3,7 @@ import { useTweaks, TweaksPanel, TweakSection, TweakColor, TweakRadio, TweakTogg
 import { TopBar, DropZone, QueueItem, Toasts, Confetti, detectKind, uid } from './components';
 import type { UploadItem, ToastItem } from './components';
 import Icon from './icons';
-import { zipInputFolder, zipDirEntry, extractDropItems } from './zipFolder';
+import { zipInputFolder, zipDirEntry, extractDropItems, type ZipResult } from './zipFolder';
 
 const TWEAK_DEFAULTS = {
   accent: '#c5f82a',
@@ -23,6 +23,7 @@ interface FileLike {
   name: string;
   size: number;
   type: string;
+  displayName?: string;
 }
 
 export default function App() {
@@ -38,10 +39,6 @@ export default function App() {
   const addMoreRef = React.useRef<HTMLInputElement>(null);
   const addMoreFolderRef = React.useRef<HTMLInputElement>(null);
   const queueDragCount = React.useRef(0);
-
-  React.useEffect(() => {
-    addMoreFolderRef.current?.setAttribute('webkitdirectory', '');
-  }, []);
 
   // tweaks → root attrs
   React.useEffect(() => {
@@ -62,7 +59,7 @@ export default function App() {
       const baseSpeed = 800 * 1024 + Math.random() * 6_000_000;
       next.push({
         id: uid(),
-        name: f.name,
+        name: (f as FileLike).displayName ?? f.name,
         size: f.size,
         sent: 0,
         kind,
@@ -80,11 +77,11 @@ export default function App() {
     setItems((prev) => [...next, ...prev]);
   }, []);
 
-  const compressAndAdd = React.useCallback(async (promise: Promise<File>) => {
+  const compressAndAdd = React.useCallback(async (promise: Promise<ZipResult>) => {
     setCompressing(true);
     try {
-      const zipFile = await promise;
-      addFiles([zipFile]);
+      const { file, folderName } = await promise;
+      addFiles([Object.assign(file, { displayName: folderName })]);
     } finally {
       setCompressing(false);
     }
@@ -341,7 +338,7 @@ export default function App() {
                 const files = Array.from(e.target.files || []);
                 if (files.length) onFolderFiles(files);
                 e.target.value = '';
-              }} />
+              }} {...{ webkitdirectory: '' }} />
             </section>
           )}
         </main>

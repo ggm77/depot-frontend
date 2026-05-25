@@ -1,32 +1,32 @@
 import JSZip from 'jszip';
 
-function makeZipName(): string {
-  const d = new Date();
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `depot_${p(d.getFullYear() % 100)}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}.zip`;
+export interface ZipResult {
+  file: File;
+  folderName: string;
 }
 
-async function toZipFile(zip: JSZip): Promise<File> {
+async function toZipFile(zip: JSZip, folderName: string): Promise<ZipResult> {
   const blob = await zip.generateAsync({
     type: 'blob',
     compression: 'DEFLATE',
     compressionOptions: { level: 6 },
   });
-  return new File([blob], makeZipName(), { type: 'application/zip' });
+  return { file: new File([blob], `${folderName}.zip`, { type: 'application/zip' }), folderName };
 }
 
 // <input webkitdirectory> — files already carry webkitRelativePath
-export async function zipInputFolder(files: File[]): Promise<File> {
+export async function zipInputFolder(files: File[]): Promise<ZipResult> {
   const zip = new JSZip();
+  const folderName = (files[0] as File & { webkitRelativePath?: string }).webkitRelativePath?.split('/')[0] || 'folder';
   for (const f of files) {
     const path = (f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name;
     zip.file(path, f);
   }
-  return toZipFile(zip);
+  return toZipFile(zip, folderName);
 }
 
 // Drag-and-drop directory entry — traverse recursively
-export async function zipDirEntry(entry: FileSystemDirectoryEntry): Promise<File> {
+export async function zipDirEntry(entry: FileSystemDirectoryEntry): Promise<ZipResult> {
   const zip = new JSZip();
 
   async function walk(e: FileSystemEntry, path: string): Promise<void> {
@@ -48,7 +48,7 @@ export async function zipDirEntry(entry: FileSystemDirectoryEntry): Promise<File
   }
 
   await walk(entry, entry.name);
-  return toZipFile(zip);
+  return toZipFile(zip, entry.name);
 }
 
 // Extract regular files and directory entries from a DataTransfer
