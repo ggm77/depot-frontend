@@ -359,7 +359,41 @@ body::after {
   display: flex;
   gap: 8px;
   justify-content: center;
+  align-items: center;
   margin: 18px 0 0;
+}
+
+.dz-password {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--bg-sub);
+  border: 1px solid var(--border);
+  transition: border-color 0.15s;
+}
+.dz-password:focus-within {
+  border-color: var(--accent);
+}
+.dz-password svg {
+  width: 13px;
+  height: 13px;
+  color: var(--fg-mute);
+  flex-shrink: 0;
+}
+.dz-password input {
+  background: transparent;
+  border: none;
+  color: var(--fg);
+  outline: none;
+  width: 130px;
+  font: inherit;
+  font-size: 13px;
+}
+.dz-password input::placeholder {
+  color: var(--fg-mute);
 }
 
 .btn-primary {

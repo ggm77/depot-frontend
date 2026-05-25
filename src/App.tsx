@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTweaks, TweaksPanel, TweakSection, TweakColor, TweakRadio, TweakToggle, TweakSlider, TweakButton } from './tweaks-panel';
-import { LockScreen, TopBar, DropZone, QueueItem, Toasts, Confetti, formatBytes, detectKind, uid } from './components';
+import { TopBar, DropZone, QueueItem, Toasts, Confetti, formatBytes, detectKind, uid } from './components';
 import type { UploadItem, ToastItem } from './components';
 
 const TWEAK_DEFAULTS = {
@@ -27,7 +27,6 @@ interface FileLike {
 
 export default function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
-  const [locked, setLocked] = React.useState(true);
   const [password, setPassword] = React.useState('');
   const [dropActive, setDropActive] = React.useState(false);
   const [items, setItems] = React.useState<UploadItem[]>([]);
@@ -195,14 +194,13 @@ export default function App() {
 
   // global paste handler
   React.useEffect(() => {
-    if (locked) return;
     const onPaste = (e: ClipboardEvent) => {
       const files = Array.from(e.clipboardData?.files || []);
       if (files.length) addFiles(files);
     };
     window.addEventListener('paste', onPaste);
     return () => window.removeEventListener('paste', onPaste);
-  }, [locked, addFiles]);
+  }, [addFiles]);
 
   const active    = items.filter((i) => i.status === 'uploading').length;
   const queued    = items.filter((i) => i.status === 'queued').length;
@@ -214,14 +212,11 @@ export default function App() {
 
   return (
     <>
-      {locked ? (
-        <LockScreen onUnlock={(pw) => { setPassword(pw); setLocked(false); }} />
-      ) : (
-        <div className="app">
-          <TopBar onLock={() => setLocked(true)} used={storageUsed} max={STORAGE_MAX} />
+      <div className="app">
+        <TopBar used={storageUsed} max={STORAGE_MAX} />
 
           <main className="main">
-            <DropZone onFiles={addFiles} active={dropActive} setActive={setDropActive} />
+            <DropZone onFiles={addFiles} active={dropActive} setActive={setDropActive} password={password} setPassword={setPassword} />
 
             <section className="queue">
               <div className="section-h">
@@ -281,16 +276,14 @@ export default function App() {
 
               <div className="foot-hints">
                 <span className="hint"><span className="kbd">⌘</span><span className="kbd">V</span> 클립보드 붙여넣기</span>
-                <span className="hint">⌥ 폴더 단위 업로드 지원</span>
                 <span className="hint">서버: depot-01 · region: ap-northeast-2</span>
               </div>
             </section>
           </main>
 
-          <Toasts items={toasts} />
-          <Confetti seed={confettiSeed} />
-        </div>
-      )}
+        <Toasts items={toasts} />
+        <Confetti seed={confettiSeed} />
+      </div>
 
       <TweaksPanel title="Tweaks">
         <TweakSection label="appearance" />

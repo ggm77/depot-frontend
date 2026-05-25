@@ -61,81 +61,8 @@ export interface ToastItem {
   text: string;
 }
 
-// ── Lock screen ──────────────────────────────────────────────────────
-export function LockScreen({ onUnlock }: { onUnlock: (pw: string) => void }) {
-  const [pw, setPw] = React.useState('');
-  const [show, setShow] = React.useState(false);
-  const [err, setErr] = React.useState('');
-  const inputRef = React.useRef<HTMLInputElement>(null);
-
-  React.useEffect(() => {
-    const t = setTimeout(() => inputRef.current?.focus(), 100);
-    return () => clearTimeout(t);
-  }, []);
-
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!pw) {
-      setErr('비밀번호를 입력해 주세요');
-      return;
-    }
-    setErr('');
-    onUnlock(pw);
-  };
-
-  return (
-    <div className="lock">
-      <form className="lock-card" onSubmit={submit}>
-        <div className="lock-mark">d</div>
-        <h1 className="lock-title">depot</h1>
-        <p className="lock-sub">
-          <span className="prompt">$</span> auth --required
-        </p>
-
-        <div className="field">
-          <Icon.Lock />
-          <input
-            ref={inputRef}
-            type={show ? 'text' : 'password'}
-            placeholder="비밀번호 입력"
-            value={pw}
-            onChange={(e) => { setPw(e.target.value); if (err) setErr(''); }}
-            autoComplete="off"
-            spellCheck={false}
-          />
-          <button
-            type="button"
-            className="field-toggle"
-            onClick={() => setShow((s) => !s)}
-            aria-label={show ? '숨기기' : '표시'}
-          >
-            {show ? <Icon.EyeOff /> : <Icon.Eye />}
-          </button>
-        </div>
-
-        {err && (
-          <div className="lock-error">
-            <Icon.Alert />
-            <span>{err}</span>
-          </div>
-        )}
-
-        <button type="submit" className="btn-primary lock-submit">
-          잠금 해제
-          <Icon.Unlock />
-        </button>
-
-        <div className="lock-foot">
-          <span>v1.4.0 · TLS 1.3</span>
-          <span className="ok">● secure</span>
-        </div>
-      </form>
-    </div>
-  );
-}
-
 // ── Top bar ──────────────────────────────────────────────────────────
-export function TopBar({ onLock, used, max }: { onLock: () => void; used: number; max: number }) {
+export function TopBar({ used, max }: { used: number; max: number }) {
   const pct = Math.min(100, Math.round((used / max) * 100));
   return (
     <div className="topbar">
@@ -153,18 +80,17 @@ export function TopBar({ onLock, used, max }: { onLock: () => void; used: number
         <span style={{ color: pct > 80 ? 'var(--warn)' : 'var(--accent)' }}>●</span>
         <span>{formatBytes(used)} / {formatBytes(max)}</span>
       </span>
-      <button className="icon-btn" onClick={onLock} title="잠금">
-        <Icon.Lock />
-      </button>
     </div>
   );
 }
 
 // ── DropZone ─────────────────────────────────────────────────────────
-export function DropZone({ onFiles, active, setActive }: {
+export function DropZone({ onFiles, active, setActive, password, setPassword }: {
   onFiles: (files: File[]) => void;
   active: boolean;
   setActive: (v: boolean) => void;
+  password: string;
+  setPassword: (v: string) => void;
 }) {
   const inputRef = React.useRef<HTMLInputElement>(null);
   const dragCount = React.useRef(0);
@@ -229,22 +155,15 @@ export function DropZone({ onFiles, active, setActive }: {
           <Icon.Plus />
           파일 선택
         </button>
-        <button
-          type="button"
-          className="btn-ghost"
-          onClick={() => {
-            if (!inputRef.current) return;
-            inputRef.current.setAttribute('webkitdirectory', '');
-            inputRef.current.setAttribute('directory', '');
-            inputRef.current.click();
-            setTimeout(() => {
-              inputRef.current?.removeAttribute('webkitdirectory');
-              inputRef.current?.removeAttribute('directory');
-            }, 100);
-          }}
-        >
-          폴더 선택
-        </button>
+        <div className="dz-password">
+          <Icon.Lock />
+          <input
+            type="password"
+            placeholder="업로드 비밀번호"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </div>
       </div>
 
       <input ref={inputRef} type="file" multiple hidden onChange={onPick} />
