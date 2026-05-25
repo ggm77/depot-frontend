@@ -88,10 +88,6 @@ export function DropZone({ onFiles, onFolderFiles, onFolderEntry, active, setAct
   const folderInputRef = React.useRef<HTMLInputElement>(null);
   const dragCount = React.useRef(0);
 
-  React.useEffect(() => {
-    folderInputRef.current?.setAttribute('webkitdirectory', '');
-  }, []);
-
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
     dragCount.current = 0;
@@ -158,7 +154,7 @@ export function DropZone({ onFiles, onFolderFiles, onFolderEntry, active, setAct
       </div>
 
       <input ref={inputRef} type="file" multiple hidden onChange={onPick} onClick={(e) => e.stopPropagation()} />
-      <input ref={folderInputRef} type="file" multiple hidden onChange={onFolderPick} onClick={(e) => e.stopPropagation()} />
+      <input ref={folderInputRef} type="file" multiple hidden onChange={onFolderPick} onClick={(e) => e.stopPropagation()} {...{ webkitdirectory: '' }} />
     </div>
   );
 }
