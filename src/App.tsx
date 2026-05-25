@@ -18,8 +18,6 @@ const ACCENT_MAP: Record<string, string> = {
   '#ffb347': 'amber',
 };
 
-const STORAGE_MAX = 50 * 1024 * 1024 * 1024;
-
 interface FileLike {
   name: string;
   size: number;
@@ -202,18 +200,16 @@ export default function App() {
     return () => window.removeEventListener('paste', onPaste);
   }, [addFiles]);
 
-  const active    = items.filter((i) => i.status === 'uploading').length;
-  const queued    = items.filter((i) => i.status === 'queued').length;
-  const done      = items.filter((i) => i.status === 'done').length;
-  const totalSent = items.reduce((s, i) => s + i.sent, 0);
-  const storageUsed = 12.4 * 1024 * 1024 * 1024 + totalSent;
+  const active = items.filter((i) => i.status === 'uploading').length;
+  const queued = items.filter((i) => i.status === 'queued').length;
+  const done   = items.filter((i) => i.status === 'done').length;
 
   const isUploading = active > 0;
 
   return (
     <>
       <div className="app">
-        <TopBar used={storageUsed} max={STORAGE_MAX} />
+        <TopBar />
 
         <main className="main">
           {items.length === 0 ? (
@@ -298,7 +294,6 @@ export default function App() {
 
               <div className="foot-hints">
                 <span className="hint">파일을 여기에 끌어다 놓거나 <span className="kbd">⌘</span><span className="kbd">V</span> 로 붙여넣기</span>
-                <span className="hint">서버: depot-01 · region: ap-northeast-2</span>
               </div>
 
               <input ref={addMoreRef} type="file" multiple hidden onChange={(e) => {

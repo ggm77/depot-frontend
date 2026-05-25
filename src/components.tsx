@@ -62,8 +62,7 @@ export interface ToastItem {
 }
 
 // ── Top bar ──────────────────────────────────────────────────────────
-export function TopBar({ used, max }: { used: number; max: number }) {
-  const pct = Math.min(100, Math.round((used / max) * 100));
+export function TopBar() {
   return (
     <div className="topbar">
       <div className="brand">
@@ -71,15 +70,6 @@ export function TopBar({ used, max }: { used: number; max: number }) {
         <span>depot</span>
         <span className="brand-path">uploads</span>
       </div>
-      <div className="topbar-spacer" />
-      <span className="status-pill" title="서버 연결 상태">
-        <span className="dot" />
-        <span className="label">connected</span>
-      </span>
-      <span className="status-pill" title="스토리지 사용량">
-        <span style={{ color: pct > 80 ? 'var(--warn)' : 'var(--accent)' }}>●</span>
-        <span>{formatBytes(used)} / {formatBytes(max)}</span>
-      </span>
     </div>
   );
 }
@@ -140,10 +130,6 @@ export function DropZone({ onFiles, active, setActive }: {
       <p className="dz-sub">
         또는 클릭하여 선택 · <span className="kbd">⌘</span> <span className="kbd">V</span> 로 붙여넣기
       </p>
-
-      <div className="dz-meta">
-        <span className="tag">최대 <b>50 GB</b></span>
-      </div>
 
       <div className="dz-actions" onClick={(e) => e.stopPropagation()}>
         <button type="button" className="btn-primary" onClick={() => inputRef.current?.click()}>
