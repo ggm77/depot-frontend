@@ -144,17 +144,10 @@ export function DropZone({ onFiles, active, setActive, password, setPassword }: 
       </p>
 
       <div className="dz-meta">
-        <span className="tag">type: <b>any</b></span>
-        <span className="tag">max: <b>5.0 GB</b></span>
-        <span className="tag">concurrent: <b>4</b></span>
-        <span className="tag">encrypted: <b>TLS 1.3</b></span>
+        <span className="tag">최대 <b>50 GB</b></span>
       </div>
 
       <div className="dz-actions" onClick={(e) => e.stopPropagation()}>
-        <button type="button" className="btn-primary" onClick={() => inputRef.current?.click()}>
-          <Icon.Plus />
-          파일 선택
-        </button>
         <div className="dz-password">
           <Icon.Lock />
           <input
@@ -164,6 +157,10 @@ export function DropZone({ onFiles, active, setActive, password, setPassword }: 
             onChange={(e) => setPassword(e.target.value)}
           />
         </div>
+        <button type="button" className="btn-primary" onClick={() => inputRef.current?.click()}>
+          <Icon.Plus />
+          파일 선택
+        </button>
       </div>
 
       <input ref={inputRef} type="file" multiple hidden onChange={onPick} />
