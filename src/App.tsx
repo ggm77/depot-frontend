@@ -195,12 +195,13 @@ export default function App() {
   // global paste handler
   React.useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
+      if (!password.trim()) return;
       const files = Array.from(e.clipboardData?.files || []);
       if (files.length) addFiles(files);
     };
     window.addEventListener('paste', onPaste);
     return () => window.removeEventListener('paste', onPaste);
-  }, [addFiles]);
+  }, [addFiles, password]);
 
   const active    = items.filter((i) => i.status === 'uploading').length;
   const queued    = items.filter((i) => i.status === 'queued').length;

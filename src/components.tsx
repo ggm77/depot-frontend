@@ -95,10 +95,13 @@ export function DropZone({ onFiles, active, setActive, password, setPassword }: 
   const inputRef = React.useRef<HTMLInputElement>(null);
   const dragCount = React.useRef(0);
 
+  const hasPassword = password.trim().length > 0;
+
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
     dragCount.current = 0;
     setActive(false);
+    if (!hasPassword) return;
     const files = Array.from(e.dataTransfer.files || []);
     if (files.length) onFiles(files);
   };
@@ -124,8 +127,8 @@ export function DropZone({ onFiles, active, setActive, password, setPassword }: 
 
   return (
     <div
-      className={`dropzone${active ? ' is-active' : ''}`}
-      onClick={() => inputRef.current?.click()}
+      className={`dropzone${active ? ' is-active' : ''}${!hasPassword ? ' no-password' : ''}`}
+      onClick={() => hasPassword && inputRef.current?.click()}
       onDrop={onDrop}
       onDragOver={onDragOver}
       onDragEnter={onDragEnter}
@@ -137,7 +140,7 @@ export function DropZone({ onFiles, active, setActive, password, setPassword }: 
         <Icon.Upload />
       </div>
       <h2 className="dz-title">
-        {active ? '여기에 놓으세요' : '파일을 끌어다 놓으세요'}
+        {active ? (hasPassword ? '여기에 놓으세요' : '비밀번호를 먼저 입력하세요') : '파일을 끌어다 놓으세요'}
       </h2>
       <p className="dz-sub">
         또는 클릭하여 선택 · <span className="kbd">⌘</span> <span className="kbd">V</span> 로 붙여넣기
@@ -148,16 +151,24 @@ export function DropZone({ onFiles, active, setActive, password, setPassword }: 
       </div>
 
       <div className="dz-actions" onClick={(e) => e.stopPropagation()}>
-        <div className="dz-password">
+        <div className={`dz-password${!hasPassword ? ' is-empty' : ''}`}>
           <Icon.Lock />
           <input
             type="password"
-            placeholder="업로드 비밀번호"
+            placeholder="업로드 비밀번호 (필수)"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
           />
+          {!hasPassword && <span className="dz-password-required">필수</span>}
         </div>
-        <button type="button" className="btn-primary" onClick={() => inputRef.current?.click()}>
+        <button
+          type="button"
+          className="btn-primary"
+          onClick={() => inputRef.current?.click()}
+          disabled={!hasPassword}
+          title={!hasPassword ? '비밀번호를 먼저 입력하세요' : undefined}
+        >
           <Icon.Plus />
           파일 선택
         </button>
