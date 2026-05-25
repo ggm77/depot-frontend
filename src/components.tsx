@@ -53,6 +53,7 @@ export interface UploadItem {
   addedAt: number;
   willFail: boolean;
   error: string | null;
+  file?: File;
 }
 
 export interface ToastItem {
@@ -61,11 +62,10 @@ export interface ToastItem {
 }
 
 // ── Lock screen ──────────────────────────────────────────────────────
-export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
+export function LockScreen({ onUnlock }: { onUnlock: (pw: string) => void }) {
   const [pw, setPw] = React.useState('');
   const [show, setShow] = React.useState(false);
   const [err, setErr] = React.useState('');
-  const [tries, setTries] = React.useState(0);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
@@ -79,15 +79,8 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
       setErr('비밀번호를 입력해 주세요');
       return;
     }
-    if (pw.length >= 4) {
-      setErr('');
-      onUnlock();
-    } else {
-      setTries((n) => n + 1);
-      setErr('비밀번호가 올바르지 않습니다');
-      setPw('');
-      inputRef.current?.focus();
-    }
+    setErr('');
+    onUnlock(pw);
   };
 
   return (
@@ -121,7 +114,7 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
         </div>
 
         {err && (
-          <div className="lock-error" key={tries}>
+          <div className="lock-error">
             <Icon.Alert />
             <span>{err}</span>
           </div>

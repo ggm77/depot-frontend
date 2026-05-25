@@ -28,10 +28,12 @@ interface FileLike {
 export default function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const [locked, setLocked] = React.useState(true);
+  const [password, setPassword] = React.useState('');
   const [dropActive, setDropActive] = React.useState(false);
   const [items, setItems] = React.useState<UploadItem[]>([]);
   const [toasts, setToasts] = React.useState<ToastItem[]>([]);
   const [confettiSeed, setConfettiSeed] = React.useState(0);
+  const xhrsRef = React.useRef<Record<string, XMLHttpRequest>>({});
 
   // tweaks → root attrs
   React.useEffect(() => {
@@ -50,7 +52,6 @@ export default function App() {
         try { thumbUrl = URL.createObjectURL(f); } catch (e) { /* noop */ }
       }
       const baseSpeed = 800 * 1024 + Math.random() * 6_000_000;
-      const failChance = f.size > 1024 ? Math.random() < 0.1 : false;
       next.push({
         id: uid(),
         name: f.name,
@@ -63,58 +64,97 @@ export default function App() {
         baseSpeed,
         eta: 0,
         addedAt: Date.now(),
-        willFail: failChance,
+        willFail: false,
         error: null,
+        file: f instanceof File ? f : undefined,
       });
     }
     setItems((prev) => [...next, ...prev]);
   }, []);
 
-  // ticker: drives uploads forward
+  // real uploader
   React.useEffect(() => {
-    const TICK = 200;
-    const id = setInterval(() => {
-      setItems((prev) => {
-        let activeCount = prev.filter((p) => p.status === 'uploading').length;
-        const limit = Math.max(1, Math.min(8, t.concurrency || 3));
+    const activeItems = items.filter(i => i.status === 'uploading');
+    const limit = Math.max(1, Math.min(8, t.concurrency || 3));
+    
+    if (activeItems.length < limit) {
+      const queuedItems = items.filter(i => i.status === 'queued');
+      const toStart = queuedItems.slice(0, limit - activeItems.length);
+      
+      toStart.forEach(item => {
+        if (!item.file) {
+          setItems(p => p.map(i => i.id === item.id ? { ...i, status: 'error', error: '파일 객체가 없습니다' } : i));
+          return;
+        }
 
-        const updated = prev.map((it) => {
-          if (it.status === 'queued' && activeCount < limit) {
-            activeCount++;
-            return { ...it, status: 'uploading' as const };
+        const formData = new FormData();
+        formData.append('files', item.file);
+        formData.append('password', password);
+
+        const xhr = new XMLHttpRequest();
+        xhrsRef.current[item.id] = xhr;
+
+        xhr.open('POST', 'https://depot.seohamin.com/api/v1/files', true);
+
+        let lastSent = 0;
+        let lastTime = Date.now();
+
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            const now = Date.now();
+            const elapsed = (now - lastTime) / 1000;
+            let speed = 0;
+            if (elapsed > 0) {
+                speed = (e.loaded - lastSent) / elapsed;
+            }
+            setItems(p => p.map(i => {
+              if (i.id === item.id) {
+                 const newSpeed = speed > 0 ? (i.speed ? (i.speed * 0.8 + speed * 0.2) : speed) : i.speed;
+                 const eta = newSpeed > 0 ? (e.total - e.loaded) / newSpeed : 0;
+                 return { ...i, sent: e.loaded, speed: newSpeed, eta };
+              }
+              return i;
+            }));
+            lastSent = e.loaded;
+            lastTime = now;
           }
-          if (it.status !== 'uploading') return it;
+        };
 
-          const speed = Math.max(64 * 1024, it.baseSpeed * (0.7 + Math.random() * 0.6));
-          const inc = Math.round((speed * TICK) / 1000);
-          let sent = it.sent + inc;
-
-          if (it.willFail && sent / it.size > 0.35 + Math.random() * 0.4) {
-            return { ...it, status: 'error' as const, error: '연결이 끊어졌습니다', willFail: false };
-          }
-
-          if (sent >= it.size) {
-            queueMicrotask(() => {
-              setToasts((tt) => {
+        xhr.onload = () => {
+          delete xhrsRef.current[item.id];
+          if (xhr.status === 204) {
+            setItems(p => p.map(i => i.id === item.id ? { ...i, status: 'done', sent: i.size, speed: 0, eta: 0 } : i));
+            setToasts((tt) => {
                 const toastId = uid();
-                const text = `${it.name} 업로드 완료`;
+                const text = `${item.name} 업로드 완료`;
                 setTimeout(() => {
                   setToasts((cur) => cur.filter((x) => x.id !== toastId));
                 }, 2600);
                 return [...tt, { id: toastId, text }];
-              });
             });
-            return { ...it, status: 'done' as const, sent: it.size, speed: 0, eta: 0 };
+          } else if (xhr.status === 401) {
+            setItems(p => p.map(i => i.id === item.id ? { ...i, status: 'error', error: '비밀번호가 잘못되었습니다' } : i));
+          } else if (xhr.status === 400) {
+            setItems(p => p.map(i => i.id === item.id ? { ...i, status: 'error', error: '잘못된 요청입니다 (파일 문제)' } : i));
+          } else {
+            setItems(p => p.map(i => i.id === item.id ? { ...i, status: 'error', error: `서버 오류 (${xhr.status})` } : i));
           }
+        };
 
-          const eta = (it.size - sent) / speed;
-          return { ...it, sent, speed, eta };
-        });
-        return updated;
+        xhr.onerror = () => {
+          delete xhrsRef.current[item.id];
+          setItems(p => p.map(i => i.id === item.id ? { ...i, status: 'error', error: '네트워크 오류' } : i));
+        };
+
+        xhr.onabort = () => {
+          delete xhrsRef.current[item.id];
+        };
+
+        setItems(p => p.map(i => i.id === item.id ? { ...i, status: 'uploading' } : i));
+        xhr.send(formData);
       });
-    }, 200);
-    return () => clearInterval(id);
-  }, [t.concurrency]);
+    }
+  }, [items, t.concurrency, password]);
 
   // burst confetti when all uploads finish
   const prevAllDoneRef = React.useRef(false);
@@ -129,13 +169,29 @@ export default function App() {
     prevAllDoneRef.current = allDone;
   }, [items]);
 
-  const onPause  = (id: string) => setItems((p) => p.map((i) => i.id === id && i.status === 'uploading' ? { ...i, status: 'paused' as const } : i));
-  const onResume = (id: string) => setItems((p) => p.map((i) => i.id === id && i.status === 'paused' ? { ...i, status: 'uploading' as const } : i));
-  const onCancel = (id: string) => setItems((p) => p.filter((i) => i.id !== id));
-  const onRetry  = (id: string) => setItems((p) => p.map((i) => i.id === id ? { ...i, status: 'queued' as const, sent: 0, error: null, willFail: false } : i));
+  const abortXhr = (id: string) => {
+    if (xhrsRef.current[id]) {
+      xhrsRef.current[id].abort();
+      delete xhrsRef.current[id];
+    }
+  };
+
+  const onPause  = (id: string) => {
+    abortXhr(id);
+    setItems((p) => p.map((i) => i.id === id && i.status === 'uploading' ? { ...i, status: 'paused' as const } : i));
+  };
+  const onResume = (id: string) => setItems((p) => p.map((i) => i.id === id && i.status === 'paused' ? { ...i, status: 'queued' as const, sent: 0 } : i));
+  const onCancel = (id: string) => {
+    abortXhr(id);
+    setItems((p) => p.filter((i) => i.id !== id));
+  };
+  const onRetry  = (id: string) => setItems((p) => p.map((i) => i.id === id ? { ...i, status: 'queued' as const, sent: 0, error: null } : i));
   const onRemove = (id: string) => setItems((p) => p.filter((i) => i.id !== id));
   const onClearDone = () => setItems((p) => p.filter((i) => i.status !== 'done'));
-  const onCancelAll = () => setItems((p) => p.filter((i) => i.status === 'done'));
+  const onCancelAll = () => {
+    Object.keys(xhrsRef.current).forEach(abortXhr);
+    setItems((p) => p.filter((i) => i.status === 'done'));
+  };
 
   // global paste handler
   React.useEffect(() => {
@@ -159,7 +215,7 @@ export default function App() {
   return (
     <>
       {locked ? (
-        <LockScreen onUnlock={() => setLocked(false)} />
+        <LockScreen onUnlock={(pw) => { setPassword(pw); setLocked(false); }} />
       ) : (
         <div className="app">
           <TopBar onLock={() => setLocked(true)} used={storageUsed} max={STORAGE_MAX} />
