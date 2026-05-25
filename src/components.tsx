@@ -157,8 +157,8 @@ export function DropZone({ onFiles, onFolderFiles, onFolderEntry, active, setAct
         </button>
       </div>
 
-      <input ref={inputRef} type="file" multiple hidden onChange={onPick} />
-      <input ref={folderInputRef} type="file" multiple hidden onChange={onFolderPick} />
+      <input ref={inputRef} type="file" multiple hidden onChange={onPick} onClick={(e) => e.stopPropagation()} />
+      <input ref={folderInputRef} type="file" multiple hidden onChange={onFolderPick} onClick={(e) => e.stopPropagation()} />
     </div>
   );
 }
