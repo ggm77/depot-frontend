@@ -73,13 +73,15 @@ export default function App() {
 
   // real uploader
   React.useEffect(() => {
+    if (!password.trim()) return;
+
     const activeItems = items.filter(i => i.status === 'uploading');
     const limit = Math.max(1, Math.min(8, t.concurrency || 3));
-    
+
     if (activeItems.length < limit) {
       const queuedItems = items.filter(i => i.status === 'queued');
       const toStart = queuedItems.slice(0, limit - activeItems.length);
-      
+
       toStart.forEach(item => {
         if (!item.file) {
           setItems(p => p.map(i => i.id === item.id ? { ...i, status: 'error', error: '파일 객체가 없습니다' } : i));
@@ -195,13 +197,12 @@ export default function App() {
   // global paste handler
   React.useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
-      if (!password.trim()) return;
       const files = Array.from(e.clipboardData?.files || []);
       if (files.length) addFiles(files);
     };
     window.addEventListener('paste', onPaste);
     return () => window.removeEventListener('paste', onPaste);
-  }, [addFiles, password]);
+  }, [addFiles]);
 
   const active    = items.filter((i) => i.status === 'uploading').length;
   const queued    = items.filter((i) => i.status === 'queued').length;

@@ -411,13 +411,6 @@ body::after {
   white-space: nowrap;
 }
 
-.dropzone.no-password { cursor: default; }
-.dropzone.no-password .btn-primary:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-  filter: none;
-  box-shadow: none;
-}
 
 .btn-primary {
   appearance: none;

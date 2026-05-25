@@ -101,7 +101,6 @@ export function DropZone({ onFiles, active, setActive, password, setPassword }: 
     e.preventDefault();
     dragCount.current = 0;
     setActive(false);
-    if (!hasPassword) return;
     const files = Array.from(e.dataTransfer.files || []);
     if (files.length) onFiles(files);
   };
@@ -127,8 +126,8 @@ export function DropZone({ onFiles, active, setActive, password, setPassword }: 
 
   return (
     <div
-      className={`dropzone${active ? ' is-active' : ''}${!hasPassword ? ' no-password' : ''}`}
-      onClick={() => hasPassword && inputRef.current?.click()}
+      className={`dropzone${active ? ' is-active' : ''}`}
+      onClick={() => inputRef.current?.click()}
       onDrop={onDrop}
       onDragOver={onDragOver}
       onDragEnter={onDragEnter}
@@ -140,7 +139,7 @@ export function DropZone({ onFiles, active, setActive, password, setPassword }: 
         <Icon.Upload />
       </div>
       <h2 className="dz-title">
-        {active ? (hasPassword ? '여기에 놓으세요' : '비밀번호를 먼저 입력하세요') : '파일을 끌어다 놓으세요'}
+        {active ? '여기에 놓으세요' : '파일을 끌어다 놓으세요'}
       </h2>
       <p className="dz-sub">
         또는 클릭하여 선택 · <span className="kbd">⌘</span> <span className="kbd">V</span> 로 붙여넣기
@@ -166,8 +165,6 @@ export function DropZone({ onFiles, active, setActive, password, setPassword }: 
           type="button"
           className="btn-primary"
           onClick={() => inputRef.current?.click()}
-          disabled={!hasPassword}
-          title={!hasPassword ? '비밀번호를 먼저 입력하세요' : undefined}
         >
           <Icon.Plus />
           파일 선택
