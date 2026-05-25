@@ -85,17 +85,13 @@ export function TopBar({ used, max }: { used: number; max: number }) {
 }
 
 // ── DropZone ─────────────────────────────────────────────────────────
-export function DropZone({ onFiles, active, setActive, password, setPassword }: {
+export function DropZone({ onFiles, active, setActive }: {
   onFiles: (files: File[]) => void;
   active: boolean;
   setActive: (v: boolean) => void;
-  password: string;
-  setPassword: (v: string) => void;
 }) {
   const inputRef = React.useRef<HTMLInputElement>(null);
   const dragCount = React.useRef(0);
-
-  const hasPassword = password.trim().length > 0;
 
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -150,22 +146,7 @@ export function DropZone({ onFiles, active, setActive, password, setPassword }: 
       </div>
 
       <div className="dz-actions" onClick={(e) => e.stopPropagation()}>
-        <div className={`dz-password${!hasPassword ? ' is-empty' : ''}`}>
-          <Icon.Lock />
-          <input
-            type="password"
-            placeholder="업로드 비밀번호 (필수)"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
-          />
-          {!hasPassword && <span className="dz-password-required">필수</span>}
-        </div>
-        <button
-          type="button"
-          className="btn-primary"
-          onClick={() => inputRef.current?.click()}
-        >
+        <button type="button" className="btn-primary" onClick={() => inputRef.current?.click()}>
           <Icon.Plus />
           파일 선택
         </button>

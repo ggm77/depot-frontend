@@ -1,7 +1,8 @@
 import React from 'react';
 import { useTweaks, TweaksPanel, TweakSection, TweakColor, TweakRadio, TweakToggle, TweakSlider, TweakButton } from './tweaks-panel';
-import { TopBar, DropZone, QueueItem, Toasts, Confetti, formatBytes, detectKind, uid } from './components';
+import { TopBar, DropZone, QueueItem, Toasts, Confetti, detectKind, uid } from './components';
 import type { UploadItem, ToastItem } from './components';
+import Icon from './icons';
 
 const TWEAK_DEFAULTS = {
   accent: '#c5f82a',
@@ -32,7 +33,10 @@ export default function App() {
   const [items, setItems] = React.useState<UploadItem[]>([]);
   const [toasts, setToasts] = React.useState<ToastItem[]>([]);
   const [confettiSeed, setConfettiSeed] = React.useState(0);
+  const [uploadStarted, setUploadStarted] = React.useState(false);
   const xhrsRef = React.useRef<Record<string, XMLHttpRequest>>({});
+  const addMoreRef = React.useRef<HTMLInputElement>(null);
+  const queueDragCount = React.useRef(0);
 
   // tweaks → root attrs
   React.useEffect(() => {
@@ -71,9 +75,9 @@ export default function App() {
     setItems((prev) => [...next, ...prev]);
   }, []);
 
-  // real uploader
+  // real uploader — only runs after user clicks "업로드 시작"
   React.useEffect(() => {
-    if (!password.trim()) return;
+    if (!password.trim() || !uploadStarted) return;
 
     const activeItems = items.filter(i => i.status === 'uploading');
     const limit = Math.max(1, Math.min(8, t.concurrency || 3));
@@ -105,14 +109,12 @@ export default function App() {
             const now = Date.now();
             const elapsed = (now - lastTime) / 1000;
             let speed = 0;
-            if (elapsed > 0) {
-                speed = (e.loaded - lastSent) / elapsed;
-            }
+            if (elapsed > 0) speed = (e.loaded - lastSent) / elapsed;
             setItems(p => p.map(i => {
               if (i.id === item.id) {
-                 const newSpeed = speed > 0 ? (i.speed ? (i.speed * 0.8 + speed * 0.2) : speed) : i.speed;
-                 const eta = newSpeed > 0 ? (e.total - e.loaded) / newSpeed : 0;
-                 return { ...i, sent: e.loaded, speed: newSpeed, eta };
+                const newSpeed = speed > 0 ? (i.speed ? (i.speed * 0.8 + speed * 0.2) : speed) : i.speed;
+                const eta = newSpeed > 0 ? (e.total - e.loaded) / newSpeed : 0;
+                return { ...i, sent: e.loaded, speed: newSpeed, eta };
               }
               return i;
             }));
@@ -126,12 +128,9 @@ export default function App() {
           if (xhr.status === 204) {
             setItems(p => p.map(i => i.id === item.id ? { ...i, status: 'done', sent: i.size, speed: 0, eta: 0 } : i));
             setToasts((tt) => {
-                const toastId = uid();
-                const text = `${item.name} 업로드 완료`;
-                setTimeout(() => {
-                  setToasts((cur) => cur.filter((x) => x.id !== toastId));
-                }, 2600);
-                return [...tt, { id: toastId, text }];
+              const toastId = uid();
+              setTimeout(() => setToasts((cur) => cur.filter((x) => x.id !== toastId)), 2600);
+              return [...tt, { id: toastId, text: `${item.name} 업로드 완료` }];
             });
           } else if (xhr.status === 401) {
             setItems(p => p.map(i => i.id === item.id ? { ...i, status: 'error', error: '비밀번호가 잘못되었습니다' } : i));
@@ -147,15 +146,18 @@ export default function App() {
           setItems(p => p.map(i => i.id === item.id ? { ...i, status: 'error', error: '네트워크 오류' } : i));
         };
 
-        xhr.onabort = () => {
-          delete xhrsRef.current[item.id];
-        };
+        xhr.onabort = () => { delete xhrsRef.current[item.id]; };
 
         setItems(p => p.map(i => i.id === item.id ? { ...i, status: 'uploading' } : i));
         xhr.send(formData);
       });
     }
-  }, [items, t.concurrency, password]);
+  }, [items, t.concurrency, password, uploadStarted]);
+
+  // items 전부 제거되면 초기 상태로 리셋
+  React.useEffect(() => {
+    if (items.length === 0) setUploadStarted(false);
+  }, [items.length]);
 
   // burst confetti when all uploads finish
   const prevAllDoneRef = React.useRef(false);
@@ -171,10 +173,7 @@ export default function App() {
   }, [items]);
 
   const abortXhr = (id: string) => {
-    if (xhrsRef.current[id]) {
-      xhrsRef.current[id].abort();
-      delete xhrsRef.current[id];
-    }
+    if (xhrsRef.current[id]) { xhrsRef.current[id].abort(); delete xhrsRef.current[id]; }
   };
 
   const onPause  = (id: string) => {
@@ -182,16 +181,15 @@ export default function App() {
     setItems((p) => p.map((i) => i.id === id && i.status === 'uploading' ? { ...i, status: 'paused' as const } : i));
   };
   const onResume = (id: string) => setItems((p) => p.map((i) => i.id === id && i.status === 'paused' ? { ...i, status: 'queued' as const, sent: 0 } : i));
-  const onCancel = (id: string) => {
-    abortXhr(id);
-    setItems((p) => p.filter((i) => i.id !== id));
-  };
+  const onCancel = (id: string) => { abortXhr(id); setItems((p) => p.filter((i) => i.id !== id)); };
   const onRetry  = (id: string) => setItems((p) => p.map((i) => i.id === id ? { ...i, status: 'queued' as const, sent: 0, error: null } : i));
   const onRemove = (id: string) => setItems((p) => p.filter((i) => i.id !== id));
   const onClearDone = () => setItems((p) => p.filter((i) => i.status !== 'done'));
-  const onCancelAll = () => {
-    Object.keys(xhrsRef.current).forEach(abortXhr);
-    setItems((p) => p.filter((i) => i.status === 'done'));
+  const onCancelAll = () => { Object.keys(xhrsRef.current).forEach(abortXhr); setItems((p) => p.filter((i) => i.status === 'done')); };
+
+  const onStartUpload = () => {
+    if (!password.trim()) return;
+    setUploadStarted(true);
   };
 
   // global paste handler
@@ -207,81 +205,110 @@ export default function App() {
   const active    = items.filter((i) => i.status === 'uploading').length;
   const queued    = items.filter((i) => i.status === 'queued').length;
   const done      = items.filter((i) => i.status === 'done').length;
-  const failed    = items.filter((i) => i.status === 'error').length;
-  const totalSize = items.reduce((s, i) => s + i.size, 0);
   const totalSent = items.reduce((s, i) => s + i.sent, 0);
   const storageUsed = 12.4 * 1024 * 1024 * 1024 + totalSent;
+
+  const isUploading = active > 0;
 
   return (
     <>
       <div className="app">
         <TopBar used={storageUsed} max={STORAGE_MAX} />
 
-          <main className="main">
-            <DropZone onFiles={addFiles} active={dropActive} setActive={setDropActive} password={password} setPassword={setPassword} />
-
-            <section className="queue">
+        <main className="main">
+          {items.length === 0 ? (
+            <DropZone onFiles={addFiles} active={dropActive} setActive={setDropActive} />
+          ) : (
+            <section
+              className={`queue${dropActive ? ' drop-active' : ''}`}
+              onDragOver={(e) => e.preventDefault()}
+              onDragEnter={(e) => {
+                e.preventDefault();
+                queueDragCount.current++;
+                if (queueDragCount.current === 1) setDropActive(true);
+              }}
+              onDragLeave={() => {
+                queueDragCount.current--;
+                if (queueDragCount.current <= 0) { queueDragCount.current = 0; setDropActive(false); }
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                queueDragCount.current = 0;
+                setDropActive(false);
+                const files = Array.from(e.dataTransfer.files || []);
+                if (files.length) addFiles(files);
+              }}
+            >
               <div className="section-h">
                 <span>upload queue</span>
-                <span className="count">
-                  {items.length === 0 ? 'empty' : `${done}/${items.length} 완료`}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span className="count">{done}/{items.length} 완료</span>
+                  {done > 0 && (
+                    <button className="btn-ghost" onClick={onClearDone} style={{ padding: '4px 9px', height: 24, fontSize: 11 }}>
+                      완료 정리
+                    </button>
+                  )}
+                  {(active + queued) > 0 && (
+                    <button className="btn-ghost" onClick={onCancelAll} style={{ padding: '4px 9px', height: 24, fontSize: 11 }}>
+                      전체 취소
+                    </button>
+                  )}
+                  <button className="btn-ghost" onClick={() => addMoreRef.current?.click()} style={{ padding: '4px 9px', height: 24, fontSize: 11 }}>
+                    + 파일 추가
+                  </button>
+                </div>
               </div>
 
-              {items.length > 0 && (
-                <div className="queue-summary">
-                  <span>전송: <span className="accent">{formatBytes(totalSent)}</span> / {formatBytes(totalSize)}</span>
-                  <span className="sep">·</span>
-                  <span>활성 {active}</span>
-                  <span className="sep">·</span>
-                  <span>대기 {queued}</span>
-                  {failed > 0 && (
-                    <>
-                      <span className="sep">·</span>
-                      <span style={{ color: 'var(--danger)' }}>실패 {failed}</span>
-                    </>
-                  )}
-                  <div className="summary-actions">
-                    {done > 0 && (
-                      <button className="btn-ghost" onClick={onClearDone} style={{ padding: '5px 10px', height: 26, fontSize: 11 }}>
-                        완료 항목 정리
-                      </button>
-                    )}
-                    {(active + queued) > 0 && (
-                      <button className="btn-ghost" onClick={onCancelAll} style={{ padding: '5px 10px', height: 26, fontSize: 11 }}>
-                        전체 취소
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
+              <div className="queue-list">
+                {items.map((it) => (
+                  <QueueItem
+                    key={it.id}
+                    item={it}
+                    onPause={onPause}
+                    onResume={onResume}
+                    onCancel={onCancel}
+                    onRetry={onRetry}
+                    onRemove={onRemove}
+                  />
+                ))}
+              </div>
 
-              {items.length === 0 ? (
-                <div className="empty">
-                  $ awaiting files... 위에 파일을 드롭하세요
+              <div className="action-bar">
+                <div className={`action-password${!password.trim() ? ' is-empty' : ''}`}>
+                  <Icon.Lock />
+                  <input
+                    type="password"
+                    placeholder="업로드 비밀번호"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') onStartUpload(); }}
+                    autoComplete="current-password"
+                  />
+                  {!password.trim() && <span className="action-password-required">필수</span>}
                 </div>
-              ) : (
-                <div className="queue-list">
-                  {items.map((it) => (
-                    <QueueItem
-                      key={it.id}
-                      item={it}
-                      onPause={onPause}
-                      onResume={onResume}
-                      onCancel={onCancel}
-                      onRetry={onRetry}
-                      onRemove={onRemove}
-                    />
-                  ))}
-                </div>
-              )}
+                <button
+                  className="btn-primary"
+                  onClick={onStartUpload}
+                  disabled={!password.trim()}
+                >
+                  <Icon.Upload />
+                  {isUploading ? '업로드 중...' : '업로드 시작'}
+                </button>
+              </div>
 
               <div className="foot-hints">
-                <span className="hint"><span className="kbd">⌘</span><span className="kbd">V</span> 클립보드 붙여넣기</span>
+                <span className="hint">파일을 여기에 끌어다 놓거나 <span className="kbd">⌘</span><span className="kbd">V</span> 로 붙여넣기</span>
                 <span className="hint">서버: depot-01 · region: ap-northeast-2</span>
               </div>
+
+              <input ref={addMoreRef} type="file" multiple hidden onChange={(e) => {
+                const files = Array.from(e.target.files || []);
+                if (files.length) addFiles(files);
+                e.target.value = '';
+              }} />
             </section>
-          </main>
+          )}
+        </main>
 
         <Toasts items={toasts} />
         <Confetti seed={confettiSeed} />
